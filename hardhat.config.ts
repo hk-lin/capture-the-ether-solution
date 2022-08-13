@@ -43,7 +43,7 @@ const config: HardhatUserConfig = {
             accounts: accounts,
             forking: {
                 url: ROPSTEN_URL, // https://ropsten.infura.io/v3/SECRET`,
-                blockNumber: 12771500,
+                blockNumber: 12771300,
             },
         },
     },

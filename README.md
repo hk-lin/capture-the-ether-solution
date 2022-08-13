@@ -50,7 +50,7 @@ npx hardhat test test/warmup/call-me.ts --network ropsten
 
 该挑战需要注册metamask，并使用metamask部署合约。
 
-这里推荐在https://iancoleman.io/bip39/上输入助记词，并取第一个生成的私钥和地址作为挑战账户。之后将私钥导入到metamask中，并通过ropsten的水管获得一定量的eth作为挑战的初期部署。同时也要将助记词作为.env中的`MNEMONIC`环境变量的值，来进行接下来的挑战。
+这里推荐在[https://iancoleman.io/bip39/](https://iancoleman.io/bip39/) 上输入助记词，并取第一个生成的私钥和地址作为挑战账户。之后将私钥导入到metamask中，并通过ropsten的水管获得一定量的eth作为挑战的初期部署。同时也要将助记词作为.env中的`MNEMONIC`环境变量的值，来进行接下来的挑战。
 
 ###### [Call me](https://capturetheether.com/challenges/warmup/call-me/)
 
@@ -174,7 +174,7 @@ tips：新版的blockhash没有这个问题，别用这个旧函数。
 
 ###### [Retirement fund](https://capturetheether.com/challenges/math/retirement-fund/)
 
-这个合约的溢出攻击点在于withdrawn计算可能产生下溢，从而绕开`collectPenalty()`的检查，提走合约中的所有eth：
+这个合约的溢出攻击点在于withdraw计算可能产生下溢，从而绕开`collectPenalty()`的检查，提走合约中的所有eth：
 
 ```solidity
  function collectPenalty() public {
@@ -194,7 +194,7 @@ tips：新版的blockhash没有这个问题，别用这个旧函数。
 
 然而合约没有任何payable函数和receive函数，无法给合约发送eth。这时候就需要一个可以强制给合约发送eth的手段了：`selfdestruct(target)`自毁函数。
 
-合约调用自毁函数后，会将合约所有的eth余额强制发送给target地址，并且不需要任何条件。利用这个函数写一个自毁合约，并往挑战合约中发送eth，即可使withdrawn计算产生下溢，绕开检查，获取大量代币完成挑战。
+合约调用自毁函数后，会将合约所有的eth余额强制发送给target地址，并且不需要任何条件。利用这个函数写一个自毁合约，并往挑战合约中发送eth，即可使withdraw计算产生下溢，绕开检查，获取大量代币完成挑战。
 
 我的自毁合约如下：
 
@@ -241,6 +241,8 @@ function donate(uint256 etherAmount) public payable {
 如果常用一些高级语言写代码，这样看起来好像没什么问题，因为他们会找一块没有使用的内存位置来存储donation。然而solidity中，donation在定义出来之后并没有进行赋值(undefined)，会被定位在slot 0位置。因此`donation.timestamp = now`会将donations队列长度修改为now，` donation.etherAmount = etherAmount`会将owner修改为etherAmount，可以通过`donate()`函数进行提权。
 
 但是这样是不是要花费大量的eth来操作？并不需要。注意到合约的`scale`实际上是$10^{36}$,而一个address是uint160，是$2^{160}$ 约$10^{42}$量级，因此最多发送$10^6$量级的eth，这是远远小于1 ether的量的，因此只需发送少量eth即可实现提权，然后调用`withdraw()`将合约的eth全部提取出来完成挑战。
+
+by the way，现在这个问题很难产生，编译器加了检查，对于这种指针需要定义"storage", "memory" 或 "calldata"来防止这种情况发生。
 
 ```solidity
     function attack() external payable {
@@ -429,15 +431,15 @@ contract FuzzContract {
 
 ###### [Account Takeover](https://capturetheether.com/challenges/accounts/account-takeover/)
 
-该挑战需要恢复出指定地址的私钥，利用该私钥签名完成挑战。这里的关键点是两笔不同的交易采用相同的r，对应他是加密算法 ECDSA必须唯一输出的值，他由一个随机数k生成。一旦两笔不同交易采用的k生成了相同的r值，就可以通过交易信息来恢复其私钥，2010年索尼就因为重复使用k使得ps3的密钥被盗用：https://www.bbc.co.uk/news/technology-12116051。
+该挑战需要恢复出指定地址的私钥，利用该私钥签名完成挑战。这里的关键点是两笔不同的交易采用相同的r，对应他是加密算法 ECDSA必须唯一输出的值，他由一个随机数k生成。一旦两笔不同交易采用的k生成了相同的r值，就可以通过交易信息来恢复其私钥，2010年索尼就因为重复使用k使得ps3的密钥被盗用：[https://www.bbc.co.uk/news/technology-12116051](https://www.bbc.co.uk/news/technology-12116051)。
 
-如何恢复私钥？可参照https://web.archive.org/web/20160308014317/http://www.nilsschneider.net/2013/01/28/recovering-bitcoin-private-keys.html中的方法，先拿到两笔采用相同的r的交易：
+如何恢复私钥？可参照[https://web.archive.org/web/20160308014317/http://www.nilsschneider.net/2013/01/28/recovering-bitcoin-private-keys.html](https://web.archive.org/web/20160308014317/http://www.nilsschneider.net/2013/01/28/recovering-bitcoin-private-keys.html)中的方法，先拿到两笔采用相同的r的交易：
 
 `0xd79fc80e7b787802602f3317b7fe67765c14a7d40c3e0dcb266e63657f881396`
 
 `0x061bf0b4b5fdb64ac475795e9bc5a3978f985919ce6747ce2cfbbcaccaf51009`
 
-获取他们的r、s、并算出交易签名作为z，然后就能通过一定算法算出他的私钥。计算脚本参考：https://medium.com/coinmonks/smart-contract-exploits-part-3-featuring-capture-the-ether-accounts-c86d7e9a1400。
+获取他们的r、s、并算出交易签名作为z，然后就能通过一定算法算出他的私钥。计算脚本参考：[https://medium.com/coinmonks/smart-contract-exploits-part-3-featuring-capture-the-ether-accounts-c86d7e9a1400](https://medium.com/coinmonks/smart-contract-exploits-part-3-featuring-capture-the-ether-accounts-c86d7e9a1400)。
 
 将私钥导入钱包，和challenge合约交互即可完成挑战。
 

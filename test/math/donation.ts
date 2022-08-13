@@ -11,7 +11,8 @@ before(async function () {
     accounts = await ethers.getSigners();
     attacker = accounts[0];
     const factory = await ethers.getContractFactory("DonationChallenge", attacker);
-    contract = factory.attach(`0x28b0E2E059375eAeaa77DfB8494DC983070ab896`);
+    contract = await factory.deploy({value:sendValue});
+    //contract = factory.attach(`0x28b0E2E059375eAeaa77DfB8494DC983070ab896`);
 });
 
 it("solves the challenge", async function () {
