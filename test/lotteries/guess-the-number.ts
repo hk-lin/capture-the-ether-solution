@@ -1,25 +1,23 @@
-import { ethers } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { expect } from "chai";
-import { formatEtherscanTx } from "../utils/format";
+// https://capturetheether.com/challenges/warmup/call-me/
+import {ethers} from "hardhat";
+import {Contract, Signer} from "ethers";
+import {expect} from "chai";
 
 let accounts: Signer[];
-let eoa: Signer;
+let attacker: Signer;
 let contract: Contract; // challenge contract
 
-before(async () => {
-  accounts = await ethers.getSigners();
-  eoa = accounts[0];
-  const factory = await ethers.getContractFactory("GuessTheNumberChallenge");
-  contract = factory.attach(`0xbF174B38891Bce42E75581f2c55dDD46a1831eDB`);
+before(async function () {
+    accounts = await ethers.getSigners();
+    attacker = accounts[0];
+    const factory = await ethers.getContractFactory("GuessTheNumberChallenge", attacker);
+    contract = factory.attach(`0x14857141f3d1b36B647cae5067e1b64Ba7c9aD73`);
 });
 
 it("solves the challenge", async function () {
-  const tx = await contract.guess(42, {
-    value: ethers.utils.parseEther(`1`),
-    gasLimit: 1e5,
-  });
-  const txHash = tx && tx.hash;
-  expect(txHash).to.not.be.undefined;
-  console.log(formatEtherscanTx(txHash));
+    await contract.guess(42, {value: ethers.utils.parseEther('1')});
+});
+
+after(async function () {
+    expect(await contract.isComplete()).to.eq(true);
 });

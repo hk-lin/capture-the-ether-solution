@@ -1,30 +1,26 @@
-import crypto from "crypto";
-import { ethers } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { expect } from "chai";
-import { formatEtherscanTx } from "../utils/format";
+import {ethers} from "hardhat";
+import {BigNumber, Contract, Signer} from "ethers";
+import {expect} from "chai";
 
 let accounts: Signer[];
-let eoa: Signer;
+let attacker: Signer;
 let contract: Contract; // challenge contract
+let secretNumber: BigNumber;
+let sendValue = ethers.utils.parseEther("1");
 
-before(async () => {
-  accounts = await ethers.getSigners();
-  eoa = accounts[0];
-  const factory = await ethers.getContractFactory("GuessTheRandomNumberChallenge");
-  contract = factory.attach(`0x186a8b89Ed6451103b11ECcC30540C440108334f`);
+before(async function () {
+    accounts = await ethers.getSigners();
+    attacker = accounts[0];
+    const factory = await ethers.getContractFactory("GuessTheRandomNumberChallenge", attacker);
+    contract = factory.attach(`0xb53bdA8ED1E98D2E2a6C273c83783cD4580007c1`);
 });
 
 it("solves the challenge", async function () {
-  // read number from contract state, everything is public on blockchain
-  const number = BigNumber.from(await contract.provider.getStorageAt(contract.address, 0))
-  console.log(`Secret number was ${number}`)
-  const tx = await contract.guess(number, {
-    value: ethers.utils.parseEther(`1`),
-  });
-  const txHash = tx && tx.hash;
-  console.log(formatEtherscanTx(txHash));
+    secretNumber = BigNumber.from(await contract.provider.getStorageAt(contract.address, 0))
+    let tx = await contract.guess(secretNumber, {value: sendValue});
+    console.log(tx.hash);
+});
 
-  const isComplete = await contract.isComplete()
-  expect(isComplete).to.be.true;
+after(async function () {
+    expect(await contract.isComplete()).to.eq(true);
 });

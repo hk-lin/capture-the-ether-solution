@@ -22,7 +22,7 @@ contract PredictTheBlockHashChallenge {
         settlementBlockNumber = block.number + 1;
     }
 
-    function settle() public {
+    function settle() public payable{
         require(msg.sender == guesser);
         require(block.number > settlementBlockNumber);
 

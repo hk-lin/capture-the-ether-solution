@@ -27,3 +27,4 @@ task(
       console.log(`Key ${getPathForIndex(index)}: ${key.address} (PK: ${key.publicKey}) (sk: ${key.privateKey})`)
     })
   });
+  

